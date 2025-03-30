@@ -57,10 +57,7 @@ class Symbol(Sentence):
         return self.name
 
     def evaluate(self, model):
-        try:
-            return bool(model[self.name])
-        except KeyError:
-            raise EvaluationException(f"variable {self.name} not in model")
+        return model.get(self.name, False)
 
     def formula(self):
         return self.name
@@ -118,8 +115,7 @@ class And(Sentence):
         self.conjuncts.append(conjunct)
 
     def evaluate(self, model):
-        # Implementar logica de AND
-        return True 
+        return all(conjunct.evaluate(model) for conjunct in self.conjuncts) 
 
     def formula(self):
         if len(self.conjuncts) == 1:
@@ -150,8 +146,7 @@ class Or(Sentence):
         return f"Or({disjuncts})"
 
     def evaluate(self, model):
-        # Implementar logica de OR
-        return True
+        return any(disjunct.evaluate(model) for disjunct in self.disjuncts)
 
     def formula(self):
         if len(self.disjuncts) == 1:
@@ -182,8 +177,7 @@ class Implication(Sentence):
         return f"Implication({self.antecedent}, {self.consequent})"
 
     def evaluate(self, model):
-        # Implementar logica de IMPLICATION
-        return True
+        return not self.antecedent.evaluate(model) or self.consequent.evaluate(model)
 
     def formula(self):
         antecedent = Sentence.parenthesize(self.antecedent.formula())
@@ -213,8 +207,7 @@ class Biconditional(Sentence):
         return f"Biconditional({self.left}, {self.right})"
 
     def evaluate(self, model):
-        # Implementar logica de BICONDITIONAL
-        return True
+        return self.left.evaluate(model) == self.right.evaluate(model)
 
     def formula(self):
         left = Sentence.parenthesize(str(self.left))
@@ -226,24 +219,16 @@ class Biconditional(Sentence):
 
 
 def model_check(knowledge, query):
-    """Checks if knowledge base entails query."""
-
     def check_all(knowledge, query, symbols, model):
-        """Checks if knowledge base entails query, given a particular model."""
-
-        # If model has an assignment for each symbol
         if not symbols:
-            # CASO BASE 
-            # If knowledge base is true in model, then query must also be true
-            if knowledge.evaluate(model):
-                return query.evaluate(model)
-            return True
+            return knowledge.evaluate(model) <= query.evaluate(model)
         else:
-            # Implemente función recursiva
-            return True 
-
-
-    symbols = set.union(knowledge.symbols(), query.symbols())
-
-    # Check that knowledge entails query
-    return check_all(knowledge, query, symbols, dict())
+            remaining = symbols.copy()
+            symbol = remaining.pop()
+            model_true = model.copy()
+            model_true[symbol] = True
+            model_false = model.copy()
+            model_false[symbol] = False
+            return check_all(knowledge, query, remaining, model_true) and check_all(knowledge, query, remaining, model_false)
+    
+    return check_all(knowledge, query, knowledge.symbols() | query.symbols(), {})
