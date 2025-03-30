@@ -1,8 +1,6 @@
 import itertools
 
-
 class Sentence():
-
     def evaluate(self, model):
         """Evaluates the logical sentence."""
         raise Exception("nothing to evaluate")
@@ -34,16 +32,12 @@ class Sentence():
                         return False
                     count -= 1
             return count == 0
-        if not len(s) or s.isalpha() or (
-            s[0] == "(" and s[-1] == ")" and balanced(s[1:-1])
-        ):
+        if not len(s) or s.isalpha() or (s[0] == "(" and s[-1] == ")" and balanced(s[1:-1])):
             return s
         else:
             return f"({s})"
 
-
 class Symbol(Sentence):
-
     def __init__(self, name):
         self.name = name
 
@@ -51,7 +45,7 @@ class Symbol(Sentence):
         return isinstance(other, Symbol) and self.name == other.name
 
     def __hash__(self):
-        return hash(("symbol", self.name))
+        return hash(self.name)
 
     def __repr__(self):
         return self.name
@@ -70,7 +64,7 @@ class Not(Sentence):
     def __init__(self, operand):
         Sentence.validate(operand)
         self.operand = operand
-
+        
     def __eq__(self, other):
         return isinstance(other, Not) and self.operand == other.operand
 
@@ -88,7 +82,6 @@ class Not(Sentence):
 
     def symbols(self):
         return self.operand.symbols()
-
 
 class And(Sentence):
     def __init__(self, *conjuncts):
@@ -110,22 +103,21 @@ class And(Sentence):
         )
         return f"And({conjunctions})"
 
-    def add(self, conjunct):
-        Sentence.validate(conjunct)
-        self.conjuncts.append(conjunct)
+    def add(self, sentence):
+        Sentence.validate(sentence)
+        self.conjuncts.append(sentence)
 
     def evaluate(self, model):
-        return all(conjunct.evaluate(model) for conjunct in self.conjuncts) 
+        return all(conjunct.evaluate(model) for conjunct in self.conjuncts)
 
     def formula(self):
         if len(self.conjuncts) == 1:
             return self.conjuncts[0].formula()
         return " ∧ ".join([Sentence.parenthesize(conjunct.formula())
                            for conjunct in self.conjuncts])
-
+    
     def symbols(self):
         return set.union(*[conjunct.symbols() for conjunct in self.conjuncts])
-
 
 class Or(Sentence):
     def __init__(self, *disjuncts):
@@ -144,7 +136,7 @@ class Or(Sentence):
     def __repr__(self):
         disjuncts = ", ".join([str(disjunct) for disjunct in self.disjuncts])
         return f"Or({disjuncts})"
-
+    
     def evaluate(self, model):
         return any(disjunct.evaluate(model) for disjunct in self.disjuncts)
 
@@ -153,10 +145,9 @@ class Or(Sentence):
             return self.disjuncts[0].formula()
         return " ∨  ".join([Sentence.parenthesize(disjunct.formula())
                             for disjunct in self.disjuncts])
-
+    
     def symbols(self):
         return set.union(*[disjunct.symbols() for disjunct in self.disjuncts])
-
 
 class Implication(Sentence):
     def __init__(self, antecedent, consequent):
@@ -187,7 +178,6 @@ class Implication(Sentence):
     def symbols(self):
         return set.union(self.antecedent.symbols(), self.consequent.symbols())
 
-
 class Biconditional(Sentence):
     def __init__(self, left, right):
         Sentence.validate(left)
@@ -213,15 +203,15 @@ class Biconditional(Sentence):
         left = Sentence.parenthesize(str(self.left))
         right = Sentence.parenthesize(str(self.right))
         return f"{left} <=> {right}"
-
+    
     def symbols(self):
         return set.union(self.left.symbols(), self.right.symbols())
-
 
 def model_check(knowledge, query):
     def check_all(knowledge, query, symbols, model):
         if not symbols:
-            return knowledge.evaluate(model) <= query.evaluate(model)
+            if knowledge.evaluate(model):
+                return query.evaluate(model)
         else:
             remaining = symbols.copy()
             symbol = remaining.pop()
@@ -232,3 +222,4 @@ def model_check(knowledge, query):
             return check_all(knowledge, query, remaining, model_true) and check_all(knowledge, query, remaining, model_false)
     
     return check_all(knowledge, query, knowledge.symbols() | query.symbols(), {})
+
